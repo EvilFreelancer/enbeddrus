@@ -4,8 +4,10 @@ model_name = 'Snowflake/snowflake-arctic-embed-xs'
 # model_name = 'GPL/msmarco-distilbert-margin-mse',
 # model_name = 'distilbert-base-uncased'
 batch_size = 128
-gpl_steps = 140000
-model_domain_path = 'model_domain'
+# gpl_steps = 140000
+gpl_steps = 1000
+output_dir = './output/model_domain'
+evaluation_output = f"{output_dir}_evaluation"
 
 dataset = 'dataset'
 gpl.train(
@@ -30,9 +32,9 @@ gpl.train(
     #   else QPP will be set 3 and |corpus| will be set to 250K / 3
     queries_per_passage=25,
 
-    output_dir=f"output/{dataset}",
+    output_dir=output_dir,
     evaluation_data=f"./{dataset}",
-    evaluation_output=f"evaluation/{dataset}",
+    evaluation_output=evaluation_output,
     generator="BeIR/query-gen-msmarco-t5-base-v1",
     retrievers=["msmarco-distilbert-base-v3", "msmarco-MiniLM-L-6-v3"],
     # Note that these two retriever model work with cosine-similarity

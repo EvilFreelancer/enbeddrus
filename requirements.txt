@@ -13,3 +13,5 @@ numpy~=1.26.4
 tqdm~=4.66.4
 gpl~=0.1.4
 scikit-learn~=1.4.2
+matplotlib~=3.9.0
+datasets~=2.19.1
