@@ -1,0 +1,25 @@
+version: "3"
+
+services:
+
+  libretranslate:
+    image: libretranslate/libretranslate:latest-cuda
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    tty: true
+    environment:
+      LT_FRONTEND_LANGUAGE_SOURCE: en
+      LT_FRONTEND_LANGUAGE_TARGET: ru
+      LT_LOAD_ONLY: en,ru
+    healthcheck:
+      test: ['CMD-SHELL', './venv/bin/python scripts/healthcheck.py']
+    volumes:
+      - ./libretranslate_data:/home/libretranslate/.local:rw
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
