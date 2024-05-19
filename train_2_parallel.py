@@ -1,12 +1,13 @@
-from sentence_transformers import SentenceTransformer, LoggingHandler, models, evaluation, losses
+from sentence_transformers import SentenceTransformer, InputExample, LoggingHandler, models, evaluation, losses
 from torch.utils.data import DataLoader
 from sentence_transformers.datasets import ParallelSentencesDataset
 from datetime import datetime
+from datasets import load_dataset
 
 import os
 import logging
 import sentence_transformers.util
-import csv
+import pandas as pd
 import gzip
 from tqdm.autonotebook import tqdm
 import numpy as np
@@ -18,8 +19,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-teacher_model_name = "Snowflake/snowflake-arctic-embed-xs"
-student_model_name = "./output/model_domain"  # Path to the directory containing the student model checkpoints
+# teacher_model_name = "Snowflake/snowflake-arctic-embed-xs"
+# student_model_name = './output/model_domain'
+
+# teacher_model_name = "intfloat/multilingual-e5-large"
+# student_model_name = "intfloat/multilingual-e5-large"
+
+# teacher_model_name = "Snowflake/snowflake-arctic-embed-xs"
+# student_model_name = "Snowflake/snowflake-arctic-embed-xs"
+
+# teacher_model_name = "Snowflake/snowflake-arctic-embed-s"
+# student_model_name = "Snowflake/snowflake-arctic-embed-s"
+
+# teacher_model_name = "Snowflake/snowflake-arctic-embed-m"
+# student_model_name = "Snowflake/snowflake-arctic-embed-m"
+
+# teacher_model_name = "mixedbread-ai/mxbai-embed-large-v1"
+# student_model_name = "mixedbread-ai/mxbai-embed-large-v1"
+
+teacher_model_name = 'bert-base-multilingual-uncased'
+student_model_name = 'bert-base-multilingual-uncased'
 
 max_seq_length = 512  # Student model max. lengths for inputs (number of word pieces)
 train_batch_size = 64  # Batch size for training
@@ -27,10 +46,10 @@ inference_batch_size = 64  # Batch size at inference
 max_sentences_per_language = 500000  # Maximum number of  parallel sentences for training
 train_max_sentence_length = 512  # Maximum length (characters) for parallel training sentences
 
-num_epochs = 100  # Train for x epochs
+num_epochs = 20  # Train for x epochs
 num_warmup_steps = 10000  # Warmup steps
 
-num_evaluation_steps = 1000  # Evaluate performance after every xxxx steps
+num_evaluation_steps = 100  # Evaluate performance after every xxxx steps
 dev_sentences = 1000  # Number of parallel sentences to be used for development
 
 # Define the language codes you would like to extend the model to
@@ -58,6 +77,76 @@ def download_corpora(filepaths):
             sentence_transformers.util.http_get(url, filepath)
 
 
+def read_datasets():
+    data = []
+
+    # Read CSV dataset
+    docsphp_dataset = "./dataset/docs_php.undup.csv"
+    docsphp_df = pd.read_csv(docsphp_dataset)
+    for _, row in docsphp_df.iterrows():
+        src_text = row["English"].strip()
+        trg_text = row["Russian"].strip()
+        if src_text and trg_text:
+            data.append((src_text, trg_text))
+
+    # Read Hugging Face datasets
+    opus_dataset = load_dataset("Helsinki-NLP/opus_books", "en-ru")
+    for item in opus_dataset['train']:
+        src_text = item['translation']['en'].strip()
+        trg_text = item['translation']['ru'].strip()
+        if src_text and trg_text:
+            data.append((src_text, trg_text))
+
+    return data
+
+
+def prepare_datasets(parallel_sentences_folder, dev_sentences):
+    data = read_datasets()
+
+    # Split data into train and dev sets
+    train_files = []
+    dev_files = []
+    files_to_create = []
+    os.makedirs(parallel_sentences_folder, exist_ok=True)
+
+    for source_lang in source_languages:
+        for target_lang in target_languages:
+            output_filename_train = os.path.join(
+                parallel_sentences_folder, "talks-{}-{}-train.tsv.gz".format(source_lang, target_lang)
+            )
+            output_filename_dev = os.path.join(
+                parallel_sentences_folder, "talks-{}-{}-dev.tsv.gz".format(source_lang, target_lang)
+            )
+            train_files.append(output_filename_train)
+            dev_files.append(output_filename_dev)
+            if not os.path.exists(output_filename_train) or not os.path.exists(output_filename_dev):
+                files_to_create.append(
+                    {
+                        "src_lang": source_lang,
+                        "trg_lang": target_lang,
+                        "fTrain": gzip.open(output_filename_train, "wt", encoding="utf8"),
+                        "fDev": gzip.open(output_filename_dev, "wt", encoding="utf8"),
+                        "devCount": 0,
+                    }
+                )
+
+    for src_text, trg_text in tqdm(data, desc="Sentences"):
+        for outfile in files_to_create:
+            if outfile["devCount"] < dev_sentences:
+                outfile["devCount"] += 1
+                fOut = outfile["fDev"]
+            else:
+                fOut = outfile["fTrain"]
+
+            fOut.write("{}\t{}\n".format(src_text, trg_text))
+
+    for outfile in files_to_create:
+        outfile["fTrain"].close()
+        outfile["fDev"].close()
+
+    return train_files, dev_files
+
+
 # Here we define train and dev corpora
 train_corpus = "./dataset/docs_php.undup.csv"
 sts_corpus = "datasets/stsbenchmark.zip"
@@ -66,57 +155,8 @@ parallel_sentences_folder = "parallel-sentences/"
 # Check if the file exists. If not, they are downloaded
 download_corpora([sts_corpus])
 
-# Create parallel files for the selected language combinations
-os.makedirs(parallel_sentences_folder, exist_ok=True)
-train_files = []
-dev_files = []
-files_to_create = []
-for source_lang in source_languages:
-    for target_lang in target_languages:
-        output_filename_train = os.path.join(
-            parallel_sentences_folder, "talks-{}-{}-train.tsv.gz".format(source_lang, target_lang)
-        )
-        output_filename_dev = os.path.join(
-            parallel_sentences_folder, "talks-{}-{}-dev.tsv.gz".format(source_lang, target_lang)
-        )
-        train_files.append(output_filename_train)
-        dev_files.append(output_filename_dev)
-        if not os.path.exists(output_filename_train) or not os.path.exists(output_filename_dev):
-            files_to_create.append(
-                {
-                    "src_lang": source_lang,
-                    "trg_lang": target_lang,
-                    "fTrain": gzip.open(output_filename_train, "wt", encoding="utf8"),
-                    "fDev": gzip.open(output_filename_dev, "wt", encoding="utf8"),
-                    "devCount": 0,
-                }
-            )
-
-if len(files_to_create) > 0:
-    print(
-        "Parallel sentences files {} do not exist. Create these files now".format(
-            ", ".join(map(lambda x: x["src_lang"] + "-" + x["trg_lang"], files_to_create))
-        )
-    )
-    with open(train_corpus, "rt", encoding="utf8") as fIn:
-        reader = csv.DictReader(fIn)
-        for line in tqdm(reader, desc="Sentences"):
-            for outfile in files_to_create:
-                src_text = line["English"].strip()
-                trg_text = line["Russian"].strip()
-
-                if src_text != "" and trg_text != "":
-                    if outfile["devCount"] < dev_sentences:
-                        outfile["devCount"] += 1
-                        fOut = outfile["fDev"]
-                    else:
-                        fOut = outfile["fTrain"]
-
-                    fOut.write("{}\t{}\n".format(src_text, trg_text))
-
-    for outfile in files_to_create:
-        outfile["fTrain"].close()
-        outfile["fDev"].close()
+# Prepare datasets
+train_files, dev_files = prepare_datasets(parallel_sentences_folder, dev_sentences)
 
 ######## Start the extension of the teacher model to multiple languages ########
 logger.info("Load teacher model")
@@ -211,9 +251,24 @@ for filename, data in sts_data.items():
     )
     evaluators.append(test_evaluator)
 
+# print(train_dataloader)
+# exit()
+
+# examples = read_datasets()
+# examples_en = [example[0] for example in examples]
+# examples_ru = [example[1] for example in examples]
+#
+# labels_en_en = teacher_model.encode(examples_en)
+# examples_en_ru = [InputExample(texts=[x], label=labels_en_en[i]) for i, x in enumerate(examples_en)]
+# loader_en_ru = DataLoader(examples_en_ru, batch_size=train_batch_size)
+#
+# examples_ru_ru = [InputExample(texts=[x], label=labels_en_en[i]) for i, x in enumerate(examples_ru)]
+# loader_ru_ru = DataLoader(examples_ru_ru, batch_size=train_batch_size)
+
 # Train the model
 student_model.fit(
     train_objectives=[(train_dataloader, train_loss)],
+    # train_objectives=[(loader_en_ru, train_loss), (loader_ru_ru, train_loss)],
     evaluator=evaluation.SequentialEvaluator(evaluators, main_score_function=lambda scores: np.mean(scores)),
     epochs=num_epochs,
     warmup_steps=num_warmup_steps,

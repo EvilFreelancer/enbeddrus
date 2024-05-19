@@ -10,7 +10,6 @@ df = df[df['English'] != df['Russian']]
 
 # Remove rows less than 10
 df = df[df['English'].str.len() > 15]
-# df = df[len(df['English']) > ]
 
 # Order by column name
 df = df.sort_values('English')

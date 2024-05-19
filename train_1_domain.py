@@ -5,7 +5,7 @@ model_name = 'Snowflake/snowflake-arctic-embed-xs'
 # model_name = 'distilbert-base-uncased'
 batch_size = 128
 # gpl_steps = 140000
-gpl_steps = 1000
+gpl_steps = 10000
 output_dir = './output/model_domain'
 evaluation_output = f"{output_dir}_evaluation"
 
