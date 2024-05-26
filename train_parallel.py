@@ -38,7 +38,8 @@ logger = logging.getLogger(__name__)
 # student_model_name = "mixedbread-ai/mxbai-embed-large-v1"
 
 teacher_model_name = 'bert-base-multilingual-uncased'
-student_model_name = 'bert-base-multilingual-uncased'
+# student_model_name = 'bert-base-multilingual-uncased'
+student_model_name = './output/enbeddrus_domain'
 
 max_seq_length = 512  # Student model max. lengths for inputs (number of word pieces)
 train_batch_size = 64  # Batch size for training
@@ -57,7 +58,7 @@ source_languages = set(["en"])  # Our teacher model accepts English (en) sentenc
 target_languages = set(["ru"])  # We want to extend the model to these new languages.
 
 output_path = (
-        "output/model_domain-"
+        "output/enbeddrus-"
         + "-".join(sorted(list(source_languages)) + sorted(list(target_languages)))
         + "-"
         + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -80,16 +81,15 @@ def download_corpora(filepaths):
 def read_datasets():
     data = []
 
-    # Read CSV dataset
-    docsphp_dataset = "./dataset/docs_php.undup.csv"
-    docsphp_df = pd.read_csv(docsphp_dataset)
-    for _, row in docsphp_df.iterrows():
-        src_text = row["English"].strip()
-        trg_text = row["Russian"].strip()
+    # Read cleaned OPUS PHP v1 en&ru dataset
+    docsphp_dataset = load_dataset("evilfreelancer/opus-php-en-ru-cleaned")
+    for item in docsphp_dataset['train']:
+        src_text = item["English"].strip()
+        trg_text = item["Russian"].strip()
         if src_text and trg_text:
             data.append((src_text, trg_text))
 
-    # Read Hugging Face datasets
+    # Read OPUS Books v1 en&ru dataset
     opus_dataset = load_dataset("Helsinki-NLP/opus_books", "en-ru")
     for item in opus_dataset['train']:
         src_text = item['translation']['en'].strip()

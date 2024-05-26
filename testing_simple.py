@@ -1,8 +1,9 @@
 import numpy as np
 from sentence_transformers import SentenceTransformer
-from datasets import load_dataset
 
-model_name_or_path = "../output/model_domain-en-ru-2024-05-19_12-16-02"
+# model_name_or_path = "output/model_domain-en-ru-2024-05-19_12-16-02"
+# model_name_or_path = "output/enbeddrus-en-ru-2024-05-20_11-30-48"
+model_name_or_path = "output/enbeddrus-en-ru-2024-05-19_18-46-49"
 # model_name_or_path = "Snowflake/snowflake-arctic-embed-s"
 
 model = SentenceTransformer(model_name_or_path)

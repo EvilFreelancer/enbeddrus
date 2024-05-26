@@ -1,17 +1,17 @@
 import gpl
 
-model_name = 'Snowflake/snowflake-arctic-embed-xs'
+# model_name = 'Snowflake/snowflake-arctic-embed-xs'
 # model_name = 'GPL/msmarco-distilbert-margin-mse',
 # model_name = 'distilbert-base-uncased'
-batch_size = 128
-# gpl_steps = 140000
-gpl_steps = 10000
-output_dir = './output/model_domain'
+model_name = 'bert-base-multilingual-uncased'
+batch_size = 64
+gpl_steps = 140000
+output_dir = './output/enbeddrus_domain'
 evaluation_output = f"{output_dir}_evaluation"
 
-dataset = 'dataset'
+dataset = 'datasets'
 gpl.train(
-    path_to_generated_data=f"generated/{dataset}",
+    path_to_generated_data=f"generated/embeddrus",
     base_ckpt=model_name,
     # The starting checkpoint of the experiments in the paper
     gpl_score_function="dot",
@@ -33,7 +33,7 @@ gpl.train(
     queries_per_passage=25,
 
     output_dir=output_dir,
-    evaluation_data=f"./{dataset}",
+    evaluation_data=f"./datasets",
     evaluation_output=evaluation_output,
     generator="BeIR/query-gen-msmarco-t5-base-v1",
     retrievers=["msmarco-distilbert-base-v3", "msmarco-MiniLM-L-6-v3"],
