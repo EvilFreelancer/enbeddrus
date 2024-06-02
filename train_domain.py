@@ -9,7 +9,6 @@ gpl_steps = 140000
 output_dir = './output/enbeddrus_domain'
 evaluation_output = f"{output_dir}_evaluation"
 
-dataset = 'datasets'
 gpl.train(
     path_to_generated_data=f"generated/embeddrus",
     base_ckpt=model_name,

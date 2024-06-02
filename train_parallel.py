@@ -158,7 +158,7 @@ download_corpora([sts_corpus])
 # Prepare datasets
 train_files, dev_files = prepare_datasets(parallel_sentences_folder, dev_sentences)
 
-######## Start the extension of the teacher model to multiple languages ########
+# Start the extension of the teacher model to multiple languages
 logger.info("Load teacher model")
 teacher_model = SentenceTransformer(teacher_model_name)
 
@@ -168,7 +168,7 @@ word_embedding_model = models.Transformer(student_model_name, max_seq_length=max
 pooling_model = models.Pooling(word_embedding_model.get_word_embedding_dimension())
 student_model = SentenceTransformer(modules=[word_embedding_model, pooling_model])
 
-###### Read Parallel Sentences Dataset ######
+# Read Parallel Sentences Dataset
 train_data = ParallelSentencesDataset(
     student_model=student_model, teacher_model=teacher_model, batch_size=inference_batch_size, use_embedding_cache=True
 )
@@ -180,7 +180,7 @@ for train_file in train_files:
 train_dataloader = DataLoader(train_data, shuffle=True, batch_size=train_batch_size)
 train_loss = losses.MSELoss(model=student_model)
 
-#### Evaluate cross-lingual performance on different tasks #####
+# Evaluate cross-lingual performance on different tasks
 evaluators = []  # evaluators has a list of different evaluator classes we call periodically
 
 for dev_file in dev_files:
@@ -204,13 +204,14 @@ for dev_file in dev_files:
     )
     evaluators.append(dev_mse)
 
-    # TranslationEvaluator computes the embeddings for all parallel sentences. It then checks if the embedding of source[i] is the closest to target[i] out of all available target sentences
+    # TranslationEvaluator computes the embeddings for all parallel sentences. It then checks if the embedding of
+    # source[i] is the closest to target[i] out of all available target sentences
     dev_trans_acc = evaluation.TranslationEvaluator(
         src_sentences, trg_sentences, name=os.path.basename(dev_file), batch_size=inference_batch_size
     )
     evaluators.append(dev_trans_acc)
 
-##### Read cross-lingual Semantic Textual Similarity (STS) data ####
+# Read cross-lingual Semantic Textual Similarity (STS) data
 all_languages = list(set(list(source_languages) + list(target_languages)))
 sts_data = {}
 
@@ -251,24 +252,9 @@ for filename, data in sts_data.items():
     )
     evaluators.append(test_evaluator)
 
-# print(train_dataloader)
-# exit()
-
-# examples = read_datasets()
-# examples_en = [example[0] for example in examples]
-# examples_ru = [example[1] for example in examples]
-#
-# labels_en_en = teacher_model.encode(examples_en)
-# examples_en_ru = [InputExample(texts=[x], label=labels_en_en[i]) for i, x in enumerate(examples_en)]
-# loader_en_ru = DataLoader(examples_en_ru, batch_size=train_batch_size)
-#
-# examples_ru_ru = [InputExample(texts=[x], label=labels_en_en[i]) for i, x in enumerate(examples_ru)]
-# loader_ru_ru = DataLoader(examples_ru_ru, batch_size=train_batch_size)
-
 # Train the model
 student_model.fit(
     train_objectives=[(train_dataloader, train_loss)],
-    # train_objectives=[(loader_en_ru, train_loss), (loader_ru_ru, train_loss)],
     evaluator=evaluation.SequentialEvaluator(evaluators, main_score_function=lambda scores: np.mean(scores)),
     epochs=num_epochs,
     warmup_steps=num_warmup_steps,
