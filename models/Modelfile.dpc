@@ -1,0 +1,2 @@
+FROM ./enbeddrus-v0.1-domain-f16.gguf
+PARAMETER num_ctx 512
