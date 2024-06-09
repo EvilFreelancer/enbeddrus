@@ -38,8 +38,8 @@ logger = logging.getLogger(__name__)
 # student_model_name = "mixedbread-ai/mxbai-embed-large-v1"
 
 teacher_model_name = 'bert-base-multilingual-uncased'
-# student_model_name = 'bert-base-multilingual-uncased'
-student_model_name = './output/enbeddrus_domain'
+student_model_name = 'bert-base-multilingual-uncased'
+# student_model_name = './output/enbeddrus_domain'
 
 max_seq_length = 512  # Student model max. lengths for inputs (number of word pieces)
 train_batch_size = 64  # Batch size for training
@@ -81,9 +81,17 @@ def download_corpora(filepaths):
 def read_datasets():
     data = []
 
+    # Read cleaned GoLang en&ru dataset
+    docs_go_dataset = load_dataset("evilfreelancer/golang-en-ru")
+    for item in docs_go_dataset['train']:
+        src_text = item["en"].strip()
+        trg_text = item["ru"].strip()
+        if src_text and trg_text:
+            data.append((src_text, trg_text))
+
     # Read cleaned OPUS PHP v1 en&ru dataset
-    docsphp_dataset = load_dataset("evilfreelancer/opus-php-en-ru-cleaned")
-    for item in docsphp_dataset['train']:
+    docs_php_dataset = load_dataset("evilfreelancer/opus-php-en-ru-cleaned")
+    for item in docs_php_dataset['train']:
         src_text = item["English"].strip()
         trg_text = item["Russian"].strip()
         if src_text and trg_text:
